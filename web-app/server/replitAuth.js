@@ -78,40 +78,40 @@ async function upsertUser(claims) {
   }
 }
 
-export async function setupAuth(app: Express) {
+async function setupAuth(app) {
   app.set("trust proxy", 1);
   app.use(getSession());
   app.use(passport.initialize());
   app.use(passport.session());
 
-  const config = await getOidcConfig();
+  const client = await getOidcConfig();
 
-  const verify: VerifyFunction = async (
-    tokens: client.TokenEndpointResponse & client.TokenEndpointResponseHelpers,
-    verified: passport.AuthenticateCallback
-  ) => {
-    const user = {};
-    updateUserSession(user, tokens);
-    await upsertUser(tokens.claims());
-    verified(null, user);
+  const verify = async (tokenSet, userinfo, done) => {
+    try {
+      const user = {};
+      updateUserSession(user, tokenSet);
+      await upsertUser(tokenSet.claims());
+      done(null, user);
+    } catch (err) {
+      done(err);
+    }
   };
 
-  for (const domain of process.env
-    .REPLIT_DOMAINS!.split(",")) {
+  for (const domain of process.env.REPLIT_DOMAINS.split(",")) {
     const strategy = new Strategy(
       {
-        name: `replitauth:${domain}`,
-        config,
-        scope: "openid email profile offline_access",
-        callbackURL: `https://${domain}/api/callback`,
+        client,
+        params: {
+          scope: "openid email profile offline_access"
+        }
       },
-      verify,
+      verify
     );
-    passport.use(strategy);
+    passport.use(`replitauth:${domain}`, strategy);
   }
 
-  passport.serializeUser((user: Express.User, cb) => cb(null, user));
-  passport.deserializeUser((user: Express.User, cb) => cb(null, user));
+  passport.serializeUser((user, cb) => cb(null, user));
+  passport.deserializeUser((user, cb) => cb(null, user));
 
   app.get("/api/login", (req, res, next) => {
     passport.authenticate(`replitauth:${req.hostname}`, {
@@ -128,21 +128,20 @@ export async function setupAuth(app: Express) {
   });
 
   app.get("/api/logout", (req, res) => {
-    req.logout(() => {
-      res.redirect(
-        client.buildEndSessionUrl(config, {
-          client_id: process.env.REPL_ID!,
-          post_logout_redirect_uri: `${req.protocol}://${req.hostname}`,
-        }).href
-      );
+    req.logout((err) => {
+      if (err) {
+        console.error("Logout error:", err);
+        return res.redirect('/');
+      }
+      res.redirect('/');
     });
   });
 }
 
-export const isAuthenticated: RequestHandler = async (req, res, next) => {
-  const user = req.user as any;
+const isAuthenticated = async (req, res, next) => {
+  const user = req.user;
 
-  if (!req.isAuthenticated() || !user.expires_at) {
+  if (!req.isAuthenticated() || !user || !user.expires_at) {
     return res.status(401).json({ message: "Unauthorized" });
   }
 
@@ -157,11 +156,18 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
   }
 
   try {
-    const config = await getOidcConfig();
-    const tokenResponse = await client.refreshTokenGrant(config, refreshToken);
+    const client = await getOidcConfig();
+    const tokenResponse = await client.refresh(refreshToken);
     updateUserSession(user, tokenResponse);
     return next();
   } catch (error) {
+    console.error("Token refresh error:", error);
     return res.redirect("/api/login");
   }
+};
+
+module.exports = {
+  setupAuth,
+  isAuthenticated,
+  getSession
 };

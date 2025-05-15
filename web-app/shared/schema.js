@@ -1,4 +1,4 @@
-const { pgTable, serial, text, varchar, timestamp, bigint, integer } = require('drizzle-orm/pg-core');
+const { pgTable, serial, text, varchar, timestamp, bigint, integer, jsonb, index } = require('drizzle-orm/pg-core');
 const { relations } = require('drizzle-orm');
 
 // Users table
@@ -8,6 +8,8 @@ const users = pgTable('users', {
   email: varchar('email', { length: 255 }).notNull().unique(),
   password: varchar('password', { length: 255 }),
   googleId: varchar('google_id', { length: 255 }).unique(),
+  replitId: varchar('replit_id', { length: 255 }).unique(),
+  profileImage: varchar('profile_image', { length: 1024 }),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow()
 });
@@ -36,9 +38,21 @@ const fileBackupsRelations = relations(fileBackups, ({ one }) => ({
   })
 }));
 
+// Session storage for authentication
+const sessions = pgTable('sessions', {
+  sid: varchar('sid').primaryKey(),
+  sess: jsonb('sess').notNull(),
+  expire: timestamp('expire').notNull()
+}, (table) => {
+  return {
+    expireIdx: index('IDX_session_expire').on(table.expire)
+  };
+});
+
 module.exports = {
   users,
   fileBackups,
+  sessions,
   usersRelations,
   fileBackupsRelations
 };
