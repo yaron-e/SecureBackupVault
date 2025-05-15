@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure Backup System</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100 font-sans">
+    <div class="container mx-auto px-4 py-8">
+        <header class="bg-white shadow-md rounded-lg p-6 mb-8">
+            <div class="flex flex-col md:flex-row justify-between items-center">
+                <h1 class="text-3xl font-bold text-blue-600 mb-4 md:mb-0">Secure Backup System</h1>
+                <div class="space-x-4">
+                    <a href="/login" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition">Login</a>
+                    <a href="/register" class="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300 transition">Register</a>
+                </div>
+            </div>
+        </header>
+
+        <main>
+            <section class="bg-white shadow-md rounded-lg p-6 mb-8">
+                <h2 class="text-2xl font-semibold mb-4">Military-Grade Secure File Backup</h2>
+                <p class="text-gray-700 mb-6">
+                    Our comprehensive backup solution offers triple-layer cascade encryption (AES-256 → Twofish → Serpent),
+                    consisting of a Windows desktop application for local backup and this web interface for remote file management.
+                </p>
+                
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div class="bg-gray-50 p-4 rounded-lg">
+                        <h3 class="text-xl font-semibold mb-2">Windows Application</h3>
+                        <ul class="list-disc pl-5 space-y-1 text-gray-700">
+                            <li>Scan your local system for files to back up</li>
+                            <li>Select specific folders and file types to include</li>
+                            <li>Military-grade cascade encryption</li>
+                            <li>Automatic backup on file creation or modification</li>
+                            <li>Secure storage in AWS S3</li>
+                            <li>Encryption keys securely stored in AWS KMS</li>
+                        </ul>
+                        <a href="#download" class="mt-4 inline-block px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition">Download App</a>
+                    </div>
+                    
+                    <div class="bg-gray-50 p-4 rounded-lg">
+                        <h3 class="text-xl font-semibold mb-2">Web Interface</h3>
+                        <ul class="list-disc pl-5 space-y-1 text-gray-700">
+                            <li>View all your backed-up files</li>
+                            <li>Download and decrypt files from anywhere</li>
+                            <li>Delete files you no longer need</li>
+                            <li>Authentication with Google accounts or email/password</li>
+                            <li>Secure access to your encrypted files</li>
+                        </ul>
+                        <a href="/login" class="mt-4 inline-block px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition">Access Files</a>
+                    </div>
+                </div>
+            </section>
+            
+            <section id="download" class="bg-white shadow-md rounded-lg p-6">
+                <h2 class="text-2xl font-semibold mb-4">Download Windows Application</h2>
+                <p class="text-gray-700 mb-6">
+                    To back up your files securely, download our Windows application. The application provides military-grade
+                    encryption and seamless integration with this web interface.
+                </p>
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <h3 class="text-lg font-semibold">Secure Backup Client v1.0</h3>
+                            <p class="text-gray-600">For Windows 10 and later</p>
+                        </div>
+                        <a href="#" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition">Download</a>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer class="mt-12 text-center text-gray-600">
+            <p>&copy; 2025 Secure Backup System. All rights reserved.</p>
+        </footer>
+    </div>
+</body>
+</html>

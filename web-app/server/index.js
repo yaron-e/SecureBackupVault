@@ -15,6 +15,9 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Serve static files from the public directory
+app.use(express.static(path.join(__dirname, '../client/public')));
+
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/files', filesRoutes);
@@ -25,6 +28,11 @@ if (process.env.NODE_ENV === 'production') {
   
   app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, '../client/dist/index.html'));
+  });
+} else {
+  // Default route in development to serve landing page
+  app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, '../client/public/index.html'));
   });
 }
 
