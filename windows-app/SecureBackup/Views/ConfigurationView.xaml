@@ -1,0 +1,123 @@
+<UserControl x:Class="SecureBackup.Views.ConfigurationView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:local="clr-namespace:SecureBackup.Views"
+             mc:Ignorable="d" 
+             d:DesignHeight="450" d:DesignWidth="800">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        
+        <!-- Backup Configuration -->
+        <StackPanel Grid.Row="0" Margin="0,0,0,20">
+            <TextBlock Text="Backup Configuration" FontWeight="Bold" FontSize="16" Margin="0,0,0,15"/>
+            
+            <CheckBox Content="Enable automatic backup on file changes" 
+                      IsChecked="{Binding EnableAutoBackup}" 
+                      Margin="0,0,0,10"/>
+            
+            <TextBlock Text="When enabled, file changes in the configured directories will automatically trigger a backup." 
+                       Opacity="0.7" 
+                       TextWrapping="Wrap"
+                       Margin="20,0,0,0"/>
+        </StackPanel>
+        
+        <!-- AWS Configuration -->
+        <StackPanel Grid.Row="1" Margin="0,0,0,20">
+            <TextBlock Text="AWS Configuration" FontWeight="Bold" FontSize="16" Margin="0,0,0,15"/>
+            
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="150"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                
+                <!-- AWS Region -->
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="AWS Region:" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding AwsRegion}" Margin="0,5" Padding="5"/>
+                
+                <!-- S3 Bucket -->
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="S3 Bucket:" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding S3Bucket}" Margin="0,5" Padding="5"/>
+                
+                <!-- KMS Key ID -->
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="KMS Key ID:" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding KmsKeyId}" Margin="0,5" Padding="5"/>
+            </Grid>
+            
+            <TextBlock Text="Note: AWS credentials are managed through AWS CLI configuration." 
+                       Opacity="0.7" 
+                       TextWrapping="Wrap"
+                       Margin="0,10,0,0"/>
+            
+            <Button Content="Test Connection" 
+                    Command="{Binding TestConnectionCommand}" 
+                    Style="{StaticResource DefaultButtonStyle}"
+                    Background="{StaticResource InfoBrush}"
+                    Width="150"
+                    HorizontalAlignment="Left"
+                    Margin="0,10,0,0"/>
+        </StackPanel>
+        
+        <!-- Encryption Information -->
+        <StackPanel Grid.Row="2" Margin="0,0,0,10">
+            <TextBlock Text="Encryption Information" FontWeight="Bold" FontSize="16" Margin="0,0,0,15"/>
+            
+            <TextBlock TextWrapping="Wrap" Margin="0,0,0,10">
+                <Run Text="This application uses cascade encryption for maximum security:"/>
+                <LineBreak/>
+                <Run Text="1. AES-256 encryption" FontWeight="Bold"/>
+                <Run Text=" - First layer of encryption"/>
+                <LineBreak/>
+                <Run Text="2. Twofish encryption" FontWeight="Bold"/>
+                <Run Text=" - Second layer of encryption"/>
+                <LineBreak/>
+                <Run Text="3. Serpent encryption" FontWeight="Bold"/>
+                <Run Text=" - Third layer of encryption"/>
+            </TextBlock>
+            
+            <TextBlock TextWrapping="Wrap">
+                <Run Text="Encryption keys are securely stored in AWS KMS. Files can only be decrypted with the appropriate keys."/>
+            </TextBlock>
+        </StackPanel>
+        
+        <!-- Save Button -->
+        <Button Grid.Row="3" 
+                Content="Save Configuration" 
+                Command="{Binding SaveConfigurationCommand}" 
+                Style="{StaticResource DefaultButtonStyle}"
+                Background="{StaticResource SuccessBrush}"
+                Width="200"
+                Height="40"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                Margin="0,20,0,0"/>
+        
+        <!-- Status Message -->
+        <TextBlock Grid.Row="4" 
+                   Text="{Binding StatusMessage}" 
+                   Margin="0,10,0,0"/>
+        
+        <!-- Saving Overlay -->
+        <Grid Grid.Row="0" Grid.RowSpan="5" 
+              Visibility="{Binding IsSaving, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <Rectangle Fill="Black" Opacity="0.3"/>
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                <TextBlock Text="Saving Configuration..." Foreground="White" FontSize="16" HorizontalAlignment="Center"/>
+                <ProgressBar IsIndeterminate="True" Width="200" Height="15" Margin="0,10,0,0"/>
+            </StackPanel>
+        </Grid>
+    </Grid>
+</UserControl>
