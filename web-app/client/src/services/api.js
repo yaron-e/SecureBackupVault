@@ -43,8 +43,8 @@ export const getFiles = async () => {
  */
 export const downloadFile = async (s3Key, keyId, fileName) => {
   try {
-    const response = await api.get(`/files/download/${s3Key}`, {
-      params: { keyId },
+    const response = await api.get('/files/download', {
+      params: { s3Key, keyId },
       responseType: 'blob'
     });
     
