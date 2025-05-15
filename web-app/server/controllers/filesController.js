@@ -1,4 +1,6 @@
-const { FileBackup } = require('../models/schema');
+const { db } = require('../db');
+const { eq } = require('drizzle-orm');
+const { fileBackups, users } = require('../../shared/schema');
 const awsService = require('../services/awsService');
 const decryptionService = require('../services/decryptionService');
 const fs = require('fs');
@@ -11,17 +13,21 @@ exports.getFiles = async (req, res, next) => {
     const userId = req.user.id;
     
     // Get files from database
-    const files = await FileBackup.findByUserId(userId);
+    const files = await db
+      .select()
+      .from(fileBackups)
+      .where(eq(fileBackups.userId, userId))
+      .orderBy(fileBackups.lastModified);
     
     // Format response
     const formattedFiles = files.map(file => ({
       id: file.id,
-      fileName: file.file_name,
-      s3Key: file.s3_key,
-      keyId: file.key_id,
+      fileName: file.fileName,
+      s3Key: file.s3Key,
+      keyId: file.keyId,
       size: file.size,
-      lastModified: file.last_modified,
-      createdAt: file.created_at
+      lastModified: file.lastModified,
+      createdAt: file.createdAt
     }));
     
     res.status(200).json(formattedFiles);
@@ -34,24 +40,31 @@ exports.getFiles = async (req, res, next) => {
 exports.downloadFile = async (req, res, next) => {
   try {
     const userId = req.user.id;
-    const s3Key = req.params.s3Key;
+    const s3Key = req.query.s3Key;
     const keyId = req.query.keyId;
     
+    if (!s3Key || !keyId) {
+      return res.status(400).json({ message: 'S3 key and key ID are required' });
+    }
+    
     // Verify file belongs to user
-    const file = await FileBackup.findByS3Key(s3Key);
+    const [file] = await db
+      .select()
+      .from(fileBackups)
+      .where(eq(fileBackups.s3Key, s3Key));
     
     if (!file) {
       return res.status(404).json({ message: 'File not found' });
     }
     
-    if (file.user_id !== userId) {
+    if (file.userId !== userId) {
       return res.status(403).json({ message: 'You do not have permission to access this file' });
     }
     
     // Create temp directories
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'secure-backup-'));
     const encryptedFilePath = path.join(tempDir, 'encrypted-file');
-    const decryptedFilePath = path.join(tempDir, file.file_name);
+    const decryptedFilePath = path.join(tempDir, file.fileName);
     
     // Download encrypted file from S3
     await awsService.downloadFile(s3Key, encryptedFilePath);
@@ -60,7 +73,7 @@ exports.downloadFile = async (req, res, next) => {
     await decryptionService.decryptFile(encryptedFilePath, decryptedFilePath, keyId);
     
     // Set response headers
-    res.setHeader('Content-Disposition', `attachment; filename="${file.file_name}"`);
+    res.setHeader('Content-Disposition', `attachment; filename="${file.fileName}"`);
     res.setHeader('Content-Type', 'application/octet-stream');
     
     // Send the file
@@ -69,9 +82,13 @@ exports.downloadFile = async (req, res, next) => {
     
     // Clean up temp files after sending
     fileStream.on('close', () => {
-      fs.unlinkSync(encryptedFilePath);
-      fs.unlinkSync(decryptedFilePath);
-      fs.rmdirSync(tempDir);
+      try {
+        if (fs.existsSync(encryptedFilePath)) fs.unlinkSync(encryptedFilePath);
+        if (fs.existsSync(decryptedFilePath)) fs.unlinkSync(decryptedFilePath);
+        if (fs.existsSync(tempDir)) fs.rmdirSync(tempDir);
+      } catch (cleanupErr) {
+        console.error('Error during cleanup:', cleanupErr);
+      }
     });
     
     fileStream.on('error', (err) => {
@@ -97,13 +114,16 @@ exports.deleteFile = async (req, res, next) => {
     const s3Key = req.params.s3Key;
     
     // Verify file belongs to user
-    const file = await FileBackup.findByS3Key(s3Key);
+    const [file] = await db
+      .select()
+      .from(fileBackups)
+      .where(eq(fileBackups.s3Key, s3Key));
     
     if (!file) {
       return res.status(404).json({ message: 'File not found' });
     }
     
-    if (file.user_id !== userId) {
+    if (file.userId !== userId) {
       return res.status(403).json({ message: 'You do not have permission to delete this file' });
     }
     
@@ -111,10 +131,12 @@ exports.deleteFile = async (req, res, next) => {
     await awsService.deleteFile(s3Key);
     
     // Delete from database
-    await FileBackup.delete(s3Key, userId);
+    await db
+      .delete(fileBackups)
+      .where(eq(fileBackups.s3Key, s3Key));
     
     // Delete encryption keys
-    await awsService.deleteEncryptionKeys(file.key_id);
+    await awsService.deleteEncryptionKeys(file.keyId);
     
     res.status(200).json({ message: 'File deleted successfully' });
   } catch (error) {
@@ -127,22 +149,42 @@ exports.getUserStats = async (req, res, next) => {
   try {
     const userId = req.user.id;
     
-    // Get stats from database
-    const stats = await FileBackup.getUserStats(userId);
+    // Get files for the user to calculate stats
+    const files = await db
+      .select()
+      .from(fileBackups)
+      .where(eq(fileBackups.userId, userId));
+    
+    // Calculate total size
+    let totalSize = 0;
+    let lastBackup = null;
+    
+    if (files.length > 0) {
+      // Sum up the sizes
+      totalSize = files.reduce((sum, file) => sum + Number(file.size || 0), 0);
+      
+      // Find the latest backup date
+      const dates = files.map(file => new Date(file.lastModified));
+      const validDates = dates.filter(date => !isNaN(date.getTime()));
+      
+      if (validDates.length > 0) {
+        lastBackup = new Date(Math.max(...validDates));
+      }
+    }
     
     // Format size
     let formattedSize = '0 B';
     
-    if (stats.total_size > 0) {
+    if (totalSize > 0) {
       const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-      const i = Math.floor(Math.log(stats.total_size) / Math.log(1024));
-      formattedSize = parseFloat((stats.total_size / Math.pow(1024, i)).toFixed(2)) + ' ' + sizes[i];
+      const i = Math.floor(Math.log(totalSize) / Math.log(1024));
+      formattedSize = parseFloat((totalSize / Math.pow(1024, i)).toFixed(2)) + ' ' + sizes[i];
     }
     
     res.status(200).json({
-      totalFiles: parseInt(stats.total_files),
+      totalFiles: files.length,
       totalSize: formattedSize,
-      lastBackup: stats.last_backup
+      lastBackup: lastBackup
     });
   } catch (error) {
     next(error);

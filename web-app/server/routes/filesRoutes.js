@@ -11,7 +11,7 @@ router.use(auth);
 router.get('/', filesController.getFiles);
 
 // Download a file
-router.get('/download/:s3Key', filesController.downloadFile);
+router.get('/download', filesController.downloadFile);
 
 // Delete a file
 router.delete('/:s3Key', filesController.deleteFile);
