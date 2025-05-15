@@ -1,304 +1,256 @@
 using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Text;
 using System.Threading.Tasks;
+using System.Collections.Generic;
+using System.Text;
+using System.Text.Json;
 using Amazon;
-using Amazon.KeyManagementService;
-using Amazon.KeyManagementService.Model;
 using Amazon.S3;
 using Amazon.S3.Model;
-using Amazon.S3.Transfer;
-using Microsoft.Extensions.Configuration;
-using Newtonsoft.Json;
+using Amazon.KeyManagementService;
+using Amazon.KeyManagementService.Model;
 
 namespace SecureBackup.Services
 {
+    /// <summary>
+    /// Provides services for interacting with AWS S3 and KMS
+    /// </summary>
     public class AwsService
     {
-        private readonly IConfiguration _configuration;
-        private readonly string _s3BucketName;
+        private readonly string _bucketName;
         private readonly string _kmsKeyId;
-        private readonly RegionEndpoint _region;
         private readonly AmazonS3Client _s3Client;
         private readonly AmazonKeyManagementServiceClient _kmsClient;
 
-        public AwsService(IConfiguration configuration)
+        public AwsService(string accessKey, string secretKey, string region, string bucketName, string kmsKeyId)
         {
-            _configuration = configuration;
-            _s3BucketName = _configuration["AWS:S3:BucketName"];
-            _kmsKeyId = _configuration["AWS:KMS:KeyId"];
-            _region = RegionEndpoint.GetBySystemName(_configuration["AWS:Region"]);
+            _bucketName = bucketName;
+            _kmsKeyId = kmsKeyId;
 
-            _s3Client = new AmazonS3Client(_region);
-            _kmsClient = new AmazonKeyManagementServiceClient(_region);
+            // Initialize AWS clients
+            var regionEndpoint = RegionEndpoint.GetBySystemName(region);
+            _s3Client = new AmazonS3Client(accessKey, secretKey, regionEndpoint);
+            _kmsClient = new AmazonKeyManagementServiceClient(accessKey, secretKey, regionEndpoint);
         }
 
         /// <summary>
         /// Uploads an encrypted file to S3
         /// </summary>
         /// <param name="filePath">Path to the encrypted file</param>
-        /// <param name="keyId">KMS key ID used for encryption</param>
-        /// <returns>The S3 object key of the uploaded file</returns>
-        public async Task<string> UploadFileToS3Async(string filePath, string keyId)
+        /// <param name="userId">ID of the user uploading the file</param>
+        /// <returns>S3 object key of the uploaded file</returns>
+        public async Task<string> UploadFileAsync(string filePath, string userId)
         {
-            if (!File.Exists(filePath))
+            var fileName = Path.GetFileName(filePath);
+            var s3Key = $"{userId}/{Guid.NewGuid()}/{fileName}";
+
+            try
             {
-                throw new FileNotFoundException("File not found", filePath);
+                // Create a request to upload the file to S3
+                var putRequest = new PutObjectRequest
+                {
+                    BucketName = _bucketName,
+                    Key = s3Key,
+                    FilePath = filePath,
+                    ContentType = "application/octet-stream",
+                    Metadata =
+                    {
+                        ["user-id"] = userId,
+                        ["original-filename"] = fileName,
+                        ["upload-date"] = DateTime.UtcNow.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'")
+                    }
+                };
+
+                // Upload the file to S3
+                await _s3Client.PutObjectAsync(putRequest);
+
+                return s3Key;
             }
-
-            string fileName = Path.GetFileName(filePath);
-            string s3Key = $"backups/{DateTime.UtcNow:yyyy-MM-dd}/{Guid.NewGuid()}/{fileName}";
-
-            // Create TransferUtility for easier S3 uploads
-            var fileTransferUtility = new TransferUtility(_s3Client);
-
-            // Set metadata including the KMS key ID
-            var uploadRequest = new TransferUtilityUploadRequest
+            catch (Exception ex)
             {
-                FilePath = filePath,
-                BucketName = _s3BucketName,
-                Key = s3Key,
-                StorageClass = S3StorageClass.StandardInfrequentAccess
-            };
-
-            // Add metadata
-            uploadRequest.Metadata.Add("KeyId", keyId);
-            uploadRequest.Metadata.Add("OriginalFileName", fileName);
-            uploadRequest.Metadata.Add("EncryptionDate", DateTime.UtcNow.ToString("o"));
-
-            await fileTransferUtility.UploadAsync(uploadRequest);
-            return s3Key;
+                throw new Exception($"Error uploading file to S3: {ex.Message}", ex);
+            }
         }
 
         /// <summary>
-        /// Downloads an encrypted file from S3
+        /// Stores encryption keys in KMS
         /// </summary>
-        /// <param name="s3Key">S3 object key</param>
-        /// <param name="destinationPath">Path to save the downloaded file</param>
-        /// <returns>The metadata of the downloaded file</returns>
-        public async Task<Dictionary<string, string>> DownloadFileFromS3Async(string s3Key, string destinationPath)
+        /// <param name="keys">Dictionary containing encryption keys</param>
+        /// <returns>KMS key ID for retrieving keys</returns>
+        public async Task<string> StoreEncryptionKeysAsync(Dictionary<string, byte[]> keys)
         {
-            var getObjectRequest = new GetObjectRequest
+            try
             {
-                BucketName = _s3BucketName,
-                Key = s3Key
-            };
-
-            using (var response = await _s3Client.GetObjectAsync(getObjectRequest))
-            using (var fileStream = new FileStream(destinationPath, FileMode.Create, FileAccess.Write))
-            {
-                await response.ResponseStream.CopyToAsync(fileStream);
-                
-                // Convert response metadata to dictionary
-                var metadata = new Dictionary<string, string>();
-                foreach (var metadataItem in response.Metadata.Keys)
+                // Convert keys dictionary to JSON
+                var keysJson = new Dictionary<string, string>();
+                foreach (var key in keys)
                 {
-                    metadata[metadataItem] = response.Metadata[metadataItem];
+                    keysJson[key.Key] = Convert.ToBase64String(key.Value);
                 }
                 
-                return metadata;
+                var jsonString = JsonSerializer.Serialize(keysJson);
+                var plaintext = Encoding.UTF8.GetBytes(jsonString);
+
+                // Encrypt the keys using KMS
+                var encryptRequest = new EncryptRequest
+                {
+                    KeyId = _kmsKeyId,
+                    Plaintext = new MemoryStream(plaintext)
+                };
+
+                var encryptResponse = await _kmsClient.EncryptAsync(encryptRequest);
+                
+                // Generate a unique key ID for this set of keys
+                var keyId = Guid.NewGuid().ToString();
+                
+                // Store the encrypted keys in S3
+                var putRequest = new PutObjectRequest
+                {
+                    BucketName = _bucketName,
+                    Key = $"keys/{keyId}",
+                    InputStream = encryptResponse.CiphertextBlob,
+                    Metadata =
+                    {
+                        ["kms-key-id"] = _kmsKeyId,
+                        ["created-date"] = DateTime.UtcNow.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'")
+                    }
+                };
+
+                await _s3Client.PutObjectAsync(putRequest);
+
+                return keyId;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Error storing encryption keys: {ex.Message}", ex);
             }
         }
 
         /// <summary>
-        /// Lists all backed up files
+        /// Retrieves encryption keys from KMS
         /// </summary>
-        /// <returns>List of S3 objects with metadata</returns>
-        public async Task<List<S3ObjectWithMetadata>> ListBackupFilesAsync()
+        /// <param name="keyId">KMS key ID for retrieving keys</param>
+        /// <returns>Dictionary containing decrypted encryption keys</returns>
+        public async Task<Dictionary<string, byte[]>> RetrieveEncryptionKeysAsync(string keyId)
         {
-            var result = new List<S3ObjectWithMetadata>();
-            var listRequest = new ListObjectsV2Request
+            try
             {
-                BucketName = _s3BucketName,
-                Prefix = "backups/"
-            };
-
-            ListObjectsV2Response response;
-            do
-            {
-                response = await _s3Client.ListObjectsV2Async(listRequest);
-                
-                foreach (var s3Object in response.S3Objects)
+                // Get the encrypted keys from S3
+                var getRequest = new GetObjectRequest
                 {
-                    var metadataRequest = new GetObjectMetadataRequest
-                    {
-                        BucketName = _s3BucketName,
-                        Key = s3Object.Key
-                    };
+                    BucketName = _bucketName,
+                    Key = $"keys/{keyId}"
+                };
 
-                    try
-                    {
-                        var metadataResponse = await _s3Client.GetObjectMetadataAsync(metadataRequest);
-                        
-                        var objectWithMetadata = new S3ObjectWithMetadata
-                        {
-                            Key = s3Object.Key,
-                            LastModified = s3Object.LastModified,
-                            Size = s3Object.Size,
-                            Metadata = new Dictionary<string, string>()
-                        };
-
-                        foreach (var key in metadataResponse.Metadata.Keys)
-                        {
-                            objectWithMetadata.Metadata[key] = metadataResponse.Metadata[key];
-                        }
-
-                        result.Add(objectWithMetadata);
-                    }
-                    catch (AmazonS3Exception)
-                    {
-                        // Skip objects that we can't get metadata for
-                        continue;
-                    }
+                var s3Response = await _s3Client.GetObjectAsync(getRequest);
+                
+                // Read the encrypted data
+                byte[] encryptedData;
+                using (var ms = new MemoryStream())
+                {
+                    await s3Response.ResponseStream.CopyToAsync(ms);
+                    encryptedData = ms.ToArray();
                 }
 
-                listRequest.ContinuationToken = response.NextContinuationToken;
-            } while (response.IsTruncated);
+                // Decrypt the data using KMS
+                var decryptRequest = new DecryptRequest
+                {
+                    CiphertextBlob = new MemoryStream(encryptedData)
+                };
 
-            return result;
-        }
+                var decryptResponse = await _kmsClient.DecryptAsync(decryptRequest);
+                
+                // Convert decrypted data to Dictionary
+                byte[] decryptedData;
+                using (var ms = new MemoryStream())
+                {
+                    await decryptResponse.Plaintext.CopyToAsync(ms);
+                    decryptedData = ms.ToArray();
+                }
 
-        /// <summary>
-        /// Deletes a file from S3
-        /// </summary>
-        /// <param name="s3Key">S3 object key</param>
-        public async Task DeleteFileFromS3Async(string s3Key)
-        {
-            var deleteRequest = new DeleteObjectRequest
-            {
-                BucketName = _s3BucketName,
-                Key = s3Key
-            };
+                var jsonString = Encoding.UTF8.GetString(decryptedData);
+                var keysJson = JsonSerializer.Deserialize<Dictionary<string, string>>(jsonString);
+                
+                // Convert Base64 strings back to byte arrays
+                var keys = new Dictionary<string, byte[]>();
+                foreach (var key in keysJson)
+                {
+                    keys[key.Key] = Convert.FromBase64String(key.Value);
+                }
 
-            await _s3Client.DeleteObjectAsync(deleteRequest);
-        }
-
-        /// <summary>
-        /// Stores encryption keys in AWS KMS
-        /// </summary>
-        /// <returns>KMS key ID for retrieving the keys</returns>
-        public async Task<string> StoreEncryptionKeysAsync(
-            string fileName,
-            byte[] aesKey, 
-            byte[] twofishKey, 
-            byte[] serpentKey, 
-            byte[] aesIv, 
-            byte[] twofishIv, 
-            byte[] serpentIv)
-        {
-            // Create a JSON object with all keys
-            var keysObject = new
-            {
-                FileName = fileName,
-                AesKey = Convert.ToBase64String(aesKey),
-                TwofishKey = Convert.ToBase64String(twofishKey),
-                SerpentKey = Convert.ToBase64String(serpentKey),
-                AesIv = Convert.ToBase64String(aesIv),
-                TwofishIv = Convert.ToBase64String(twofishIv),
-                SerpentIv = Convert.ToBase64String(serpentIv),
-                Timestamp = DateTime.UtcNow
-            };
-
-            string jsonPayload = JsonConvert.SerializeObject(keysObject);
-            byte[] payloadBytes = Encoding.UTF8.GetBytes(jsonPayload);
-
-            // Encrypt the payload using the KMS key
-            var encryptRequest = new EncryptRequest
-            {
-                KeyId = _kmsKeyId,
-                Plaintext = new MemoryStream(payloadBytes)
-            };
-
-            var encryptResponse = await _kmsClient.EncryptAsync(encryptRequest);
-            
-            // Generate a unique ID for this set of keys
-            string uniqueKeyId = Guid.NewGuid().ToString();
-            
-            // Store the encrypted keys in a KMS alias
-            var createAliasRequest = new CreateAliasRequest
-            {
-                AliasName = $"alias/backup-keys-{uniqueKeyId}",
-                TargetKeyId = _kmsKeyId
-            };
-            
-            await _kmsClient.CreateAliasAsync(createAliasRequest);
-            
-            // Store the encrypted data in S3 for persistence
-            var putObjectRequest = new PutObjectRequest
-            {
-                BucketName = _s3BucketName,
-                Key = $"keys/{uniqueKeyId}",
-                ContentType = "application/octet-stream",
-                InputStream = encryptResponse.CiphertextBlob
-            };
-            
-            await _s3Client.PutObjectAsync(putObjectRequest);
-            
-            return uniqueKeyId;
-        }
-
-        /// <summary>
-        /// Retrieves encryption keys from AWS KMS
-        /// </summary>
-        /// <param name="keyId">KMS key ID</param>
-        /// <returns>Decrypted encryption keys</returns>
-        public async Task<EncryptionKeys> RetrieveEncryptionKeysAsync(string keyId)
-        {
-            // Get the encrypted data from S3
-            var getObjectRequest = new GetObjectRequest
-            {
-                BucketName = _s3BucketName,
-                Key = $"keys/{keyId}"
-            };
-            
-            var response = await _s3Client.GetObjectAsync(getObjectRequest);
-            
-            // Decrypt the data using KMS
-            var decryptRequest = new DecryptRequest
-            {
-                CiphertextBlob = response.ResponseStream,
-                KeyId = _kmsKeyId
-            };
-            
-            var decryptResponse = await _kmsClient.DecryptAsync(decryptRequest);
-            
-            // Parse the JSON
-            string jsonPayload;
-            using (var reader = new StreamReader(decryptResponse.Plaintext))
-            {
-                jsonPayload = await reader.ReadToEndAsync();
+                return keys;
             }
-            
-            var keysObject = JsonConvert.DeserializeObject<dynamic>(jsonPayload);
-            
-            return new EncryptionKeys
+            catch (Exception ex)
             {
-                AesKey = Convert.FromBase64String((string)keysObject.AesKey),
-                TwofishKey = Convert.FromBase64String((string)keysObject.TwofishKey),
-                SerpentKey = Convert.FromBase64String((string)keysObject.SerpentKey),
-                AesIv = Convert.FromBase64String((string)keysObject.AesIv),
-                TwofishIv = Convert.FromBase64String((string)keysObject.TwofishIv),
-                SerpentIv = Convert.FromBase64String((string)keysObject.SerpentIv)
-            };
+                throw new Exception($"Error retrieving encryption keys: {ex.Message}", ex);
+            }
         }
-    }
 
-    public class S3ObjectWithMetadata
-    {
-        public string Key { get; set; }
-        public DateTime LastModified { get; set; }
-        public long Size { get; set; }
-        public Dictionary<string, string> Metadata { get; set; }
-    }
+        /// <summary>
+        /// Downloads a file from S3
+        /// </summary>
+        /// <param name="s3Key">S3 object key of the file to download</param>
+        /// <param name="outputPath">Path where the downloaded file will be saved</param>
+        /// <returns>Original file name from metadata</returns>
+        public async Task<string> DownloadFileAsync(string s3Key, string outputPath)
+        {
+            try
+            {
+                // Get the file from S3
+                var getRequest = new GetObjectRequest
+                {
+                    BucketName = _bucketName,
+                    Key = s3Key
+                };
 
-    public class EncryptionKeys
-    {
-        public byte[] AesKey { get; set; }
-        public byte[] TwofishKey { get; set; }
-        public byte[] SerpentKey { get; set; }
-        public byte[] AesIv { get; set; }
-        public byte[] TwofishIv { get; set; }
-        public byte[] SerpentIv { get; set; }
+                var response = await _s3Client.GetObjectAsync(getRequest);
+                
+                // Save the file
+                using (var fileStream = new FileStream(outputPath, FileMode.Create))
+                {
+                    await response.ResponseStream.CopyToAsync(fileStream);
+                }
+
+                // Return the original file name
+                return response.Metadata["original-filename"] ?? Path.GetFileName(s3Key);
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Error downloading file from S3: {ex.Message}", ex);
+            }
+        }
+
+        /// <summary>
+        /// Deletes a file and its associated encryption keys from S3
+        /// </summary>
+        /// <param name="s3Key">S3 object key of the file to delete</param>
+        /// <param name="keyId">ID of the associated encryption keys</param>
+        public async Task DeleteFileAsync(string s3Key, string keyId)
+        {
+            try
+            {
+                // Delete the file from S3
+                var deleteFileRequest = new DeleteObjectRequest
+                {
+                    BucketName = _bucketName,
+                    Key = s3Key
+                };
+
+                await _s3Client.DeleteObjectAsync(deleteFileRequest);
+
+                // Delete the keys from S3
+                var deleteKeysRequest = new DeleteObjectRequest
+                {
+                    BucketName = _bucketName,
+                    Key = $"keys/{keyId}"
+                };
+
+                await _s3Client.DeleteObjectAsync(deleteKeysRequest);
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Error deleting file from S3: {ex.Message}", ex);
+            }
+        }
     }
 }
