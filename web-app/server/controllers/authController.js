@@ -1,7 +1,10 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { OAuth2Client } = require('google-auth-library');
-const { User } = require('../models/schema');
+const { eq } = require('drizzle-orm');
+const { db } = require('../db');
+const { users } = require('../../shared/schema');
+const { storage } = require('../storage');
 
 // Configure Google OAuth client
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
@@ -34,7 +37,7 @@ exports.register = async (req, res, next) => {
     }
 
     // Check if user already exists
-    const existingUser = await User.findByEmail(email);
+    const existingUser = await storage.getUserByUsername(email);
     if (existingUser) {
       return res.status(400).json({
         message: 'User with this email already exists'
@@ -46,7 +49,7 @@ exports.register = async (req, res, next) => {
     const hashedPassword = await bcrypt.hash(password, salt);
 
     // Create user
-    const user = await User.create({
+    const user = await storage.createUser({
       name,
       email,
       password: hashedPassword,
@@ -83,7 +86,7 @@ exports.login = async (req, res, next) => {
     }
 
     // Check if user exists
-    const user = await User.findByEmail(email);
+    const user = await storage.getUserByUsername(email);
     if (!user) {
       return res.status(401).json({
         message: 'Invalid credentials'
@@ -139,21 +142,21 @@ exports.googleAuth = async (req, res, next) => {
     const name = payload.name;
 
     // Check if user already exists
-    let user = await User.findByGoogleId(googleId);
+    let user = await storage.getUserByGoogleId(googleId);
 
     if (!user) {
       // Check if user exists by email
-      user = await User.findByEmail(email);
+      user = await storage.getUserByUsername(email);
 
       if (user) {
         // Update existing user with Google ID
-        user = await User.update(user.id, {
+        user = await storage.updateUser(user.id, {
           ...user,
           googleId
         });
       } else {
         // Create new user
-        user = await User.create({
+        user = await storage.createUser({
           name,
           email,
           password: null,
@@ -183,7 +186,7 @@ exports.googleAuth = async (req, res, next) => {
 exports.getMe = async (req, res, next) => {
   try {
     // req.user is set from the auth middleware
-    const user = await User.findById(req.user.id);
+    const user = await storage.getUser(req.user.id);
     
     if (!user) {
       return res.status(404).json({
@@ -195,7 +198,7 @@ exports.getMe = async (req, res, next) => {
       id: user.id,
       name: user.name,
       email: user.email,
-      createdAt: user.created_at
+      createdAt: user.createdAt
     });
   } catch (error) {
     next(error);
