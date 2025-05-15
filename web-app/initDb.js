@@ -47,6 +47,8 @@ async function initializeDatabase() {
         email VARCHAR(255) UNIQUE NOT NULL,
         password VARCHAR(255),
         google_id VARCHAR(255) UNIQUE,
+        replit_id VARCHAR(255) UNIQUE,
+        profile_image VARCHAR(1024),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
@@ -61,6 +63,14 @@ async function initializeDatabase() {
         last_modified TIMESTAMP NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
+      
+      CREATE TABLE IF NOT EXISTS sessions (
+        sid VARCHAR PRIMARY KEY,
+        sess JSONB NOT NULL,
+        expire TIMESTAMP NOT NULL
+      );
+      
+      CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON sessions (expire);
     `);
     
     console.log('Database tables created successfully');

@@ -2,7 +2,8 @@ const jwt = require('jsonwebtoken');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'secure-backup-jwt-secret-key';
 
-module.exports = (req, res, next) => {
+// JWT Authentication middleware
+const authMiddleware = (req, res, next) => {
   try {
     // Get token from Authorization header
     const authHeader = req.headers.authorization;
@@ -32,3 +33,5 @@ module.exports = (req, res, next) => {
     next(error);
   }
 };
+
+module.exports = authMiddleware;
