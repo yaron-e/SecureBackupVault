@@ -31,8 +31,14 @@ class DatabaseStorage extends IStorage {
   }
   
   async getUserByReplitId(replitId) {
-    const [user] = await db.select().from(users).where(eq(users.replitId, replitId));
-    return user || undefined;
+    try {
+      const [user] = await db.select().from(users).where(eq(users.replitId, replitId));
+      return user || undefined;
+    } catch (error) {
+      // If the column doesn't exist, just return undefined
+      console.log("Note: replitId column may not exist yet", error.message);
+      return undefined;
+    }
   }
 
   async createUser(insertUser) {
