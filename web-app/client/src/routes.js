@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import App from './components/App';
 import Login from './components/Login';
+import Home from './components/Home';
 import FileDashboard from './components/FileDashboard';
 
 // Custom route that redirects to login if user is not authenticated
@@ -19,19 +20,13 @@ const AppRoutes = ({ user, onLoginSuccess, onLogout }) => {
         >
           <Route
             index
-            element={
-              user ? (
-                <FileDashboard />
-              ) : (
-                <Navigate to="/login" />
-              )
-            }
+            element={<Home />}
           />
           <Route
             path="/login"
             element={
               user ? (
-                <Navigate to="/" />
+                <Navigate to="/dashboard" />
               ) : (
                 <Login onLoginSuccess={onLoginSuccess} />
               )

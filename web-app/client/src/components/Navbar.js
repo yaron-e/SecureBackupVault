@@ -1,21 +1,31 @@
 import React from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useApi';
 
 const Navbar = ({ user, onLogout }) => {
   const { logout } = useAuth();
+  const navigate = useNavigate();
 
   const handleLogout = () => {
     logout();
-    localStorage.removeItem('token');
     if (onLogout) {
       onLogout();
     }
+    navigate('/');
   };
 
   return (
     <nav className="navbar">
       <div className="navbar-logo">
-        <h1>Secure Backup</h1>
+        <Link to="/" className="logo-link">
+          <h1>Secure Backup</h1>
+        </Link>
+      </div>
+
+      <div className="navbar-menu">
+        <Link to="/" className="nav-link">Home</Link>
+        {user && <Link to="/dashboard" className="nav-link">Dashboard</Link>}
+        <a href="/#features" className="nav-link">Features</a>
       </div>
 
       <div className="navbar-links">
@@ -27,7 +37,9 @@ const Navbar = ({ user, onLogout }) => {
             </button>
           </>
         ) : (
-          <span className="auth-message">Please login to access your backups</span>
+          <Link to="/login" className="login-button">
+            Login
+          </Link>
         )}
       </div>
     </nav>
