@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useFiles } from '../hooks/useApi';
+import FileUpload from './FileUpload';
 
 const FileDashboard = () => {
   const [files, setFiles] = useState([]);
   const [stats, setStats] = useState({ totalFiles: 0, totalSize: '0 B', lastBackup: null });
+  const [showUploadPanel, setShowUploadPanel] = useState(false);
   const { getFiles, downloadFile, deleteFile, getUserStats, isLoading, error } = useFiles();
 
   useEffect(() => {
@@ -52,6 +54,14 @@ const FileDashboard = () => {
     }
   };
 
+  const handleUploadComplete = (results) => {
+    // In a real implementation, this would update the file list
+    // For now, just refresh the file list and stats
+    fetchFiles();
+    fetchStats();
+    setShowUploadPanel(false);
+  };
+
   const formatDate = (dateString) => {
     if (!dateString) return 'Never';
     const date = new Date(dateString);
@@ -60,11 +70,25 @@ const FileDashboard = () => {
 
   return (
     <div className="dashboard-container">
-      <h1>Your Secure Backups</h1>
+      <div className="dashboard-header">
+        <h1>Your Secure Backups</h1>
+        <button 
+          className="primary-btn"
+          onClick={() => setShowUploadPanel(!showUploadPanel)}
+        >
+          {showUploadPanel ? 'Hide Upload Panel' : 'Upload Files'}
+        </button>
+      </div>
       
       {error && (
         <div className="error-message">
           <p>{error}</p>
+        </div>
+      )}
+      
+      {showUploadPanel && (
+        <div className="upload-section">
+          <FileUpload onUploadComplete={handleUploadComplete} />
         </div>
       )}
       
@@ -91,45 +115,56 @@ const FileDashboard = () => {
         ) : files.length === 0 ? (
           <div className="empty-state">
             <p>No files backed up yet.</p>
-            <p>Use the desktop app to start backing up your files.</p>
+            <p>Use the desktop app to start backing up your files or click the "Upload Files" button above.</p>
           </div>
         ) : (
-          <table className="files-table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Size</th>
-                <th>Last Modified</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {files.map((file) => (
-                <tr key={file.id}>
-                  <td>{file.fileName}</td>
-                  <td>{formatFileSize(file.size)}</td>
-                  <td>{formatDate(file.lastModified)}</td>
-                  <td className="file-actions">
-                    <button
-                      className="download-btn"
-                      onClick={() => handleDownload(file)}
-                      disabled={isLoading}
-                    >
-                      Download
-                    </button>
-                    <button
-                      className="delete-btn"
-                      onClick={() => handleDelete(file.s3Key)}
-                      disabled={isLoading}
-                    >
-                      Delete
-                    </button>
-                  </td>
+          <div className="files-table-container">
+            <table className="files-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Size</th>
+                  <th>Last Modified</th>
+                  <th>Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {files.map((file) => (
+                  <tr key={file.id}>
+                    <td className="file-name">{file.fileName}</td>
+                    <td>{formatFileSize(file.size)}</td>
+                    <td>{formatDate(file.lastModified)}</td>
+                    <td className="file-actions">
+                      <button
+                        className="download-btn"
+                        onClick={() => handleDownload(file)}
+                        disabled={isLoading}
+                      >
+                        Download
+                      </button>
+                      <button
+                        className="delete-btn"
+                        onClick={() => handleDelete(file.s3Key)}
+                        disabled={isLoading}
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
+      </div>
+      
+      <div className="desktop-app-info">
+        <h3>Need More Features?</h3>
+        <p>
+          Download our Windows desktop app for automatic file monitoring, 
+          real-time backup, and advanced encryption settings.
+        </p>
+        <button className="secondary-btn">Download Desktop App</button>
       </div>
     </div>
   );
