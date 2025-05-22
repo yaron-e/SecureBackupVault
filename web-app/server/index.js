@@ -8,33 +8,24 @@ const filesRoutes = require('./routes/filesRoutes');
 
 // Create Express app
 const app = express();
-const PORT = process.env.PORT || 8000;
+const PORT = process.env.PORT || 5000;
 
 // Middleware
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Serve static files from the public directory
-app.use(express.static(path.join(__dirname, '../client/public')));
-
-// Routes
+// API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/files', filesRoutes);
 
-// Serve static React app in production
-if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, '../client/dist')));
-  
-  app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '../client/dist/index.html'));
-  });
-} else {
-  // Default route in development to serve landing page
-  app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, '../client/public/index.html'));
-  });
-}
+// Serve static files from the public directory
+app.use(express.static(path.join(__dirname, '../client/public')));
+
+// All other GET requests not handled before will return the React app
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../client/public/index.html'));
+});
 
 // Error handling middleware
 app.use((err, req, res, next) => {
