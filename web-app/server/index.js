@@ -1,10 +1,10 @@
-require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
-const path = require('path');
-const { pool } = require('./db');
-const authRoutes = require('./routes/authRoutes');
-const filesRoutes = require('./routes/filesRoutes');
+require("dotenv").config();
+const express = require("express");
+const cors = require("cors");
+const path = require("path");
+const { pool } = require("./db");
+const authRoutes = require("./routes/authRoutes");
+const filesRoutes = require("./routes/filesRoutes");
 
 // Create Express app
 const app = express();
@@ -16,54 +16,55 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // API Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/files', filesRoutes);
+app.use("/api/auth", authRoutes);
+app.use("/api/files", filesRoutes);
 
 // Serve static files from the public directory
-app.use(express.static(path.join(__dirname, '../client/public')));
+app.use(express.static(path.join(__dirname, "../client/public")));
 
 // All other GET requests not handled before will return the React app
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../client/public/index.html'));
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "../client/public/index.html"));
 });
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error('Server error:', err);
+  console.error("Server error:", err);
   const statusCode = err.statusCode || 500;
-  const message = err.message || 'Internal Server Error';
+  const message = err.message || "Internal Server Error";
   res.status(statusCode).json({ message });
 });
 
 // Health check endpoint
-app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'ok' });
+app.get("/health", (req, res) => {
+  console.log("Called health check endpoint");
+  res.status(200).json({ status: "ok" });
 });
 
 // Start the server
-app.listen(PORT, '0.0.0.0', async () => {
+app.listen(PORT, "0.0.0.0", async () => {
   try {
     // Test database connection
     const client = await pool.connect();
-    console.log('Database connection successful');
+    console.log("Database connection successful");
     client.release();
-    
+
     console.log(`Server running on http://0.0.0.0:${PORT}`);
   } catch (error) {
-    console.error('Failed to start server:', error);
+    console.error("Failed to start server:", error);
     process.exit(1);
   }
 });
 
 // Handle graceful shutdown
-process.on('SIGTERM', async () => {
-  console.log('SIGTERM received, shutting down gracefully');
+process.on("SIGTERM", async () => {
+  console.log("SIGTERM received, shutting down gracefully");
   await pool.end();
   process.exit(0);
 });
 
-process.on('SIGINT', async () => {
-  console.log('SIGINT received, shutting down gracefully');
+process.on("SIGINT", async () => {
+  console.log("SIGINT received, shutting down gracefully");
   await pool.end();
   process.exit(0);
 });
