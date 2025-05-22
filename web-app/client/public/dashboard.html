@@ -1,528 +1,346 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard - Secure Backup System</title>
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard - Secure Backup</title>
+  <meta name="description" content="Manage your secure file backups">
+  <link rel="icon" href="favicon.ico">
+  <link rel="stylesheet" href="/styles.css">
 </head>
-<body class="bg-gray-100 font-sans">
-    <div class="min-h-screen flex flex-col">
-        <!-- Navigation Bar -->
-        <nav class="bg-white shadow-sm">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div class="flex justify-between h-16">
-                    <div class="flex">
-                        <div class="flex-shrink-0 flex items-center">
-                            <a href="/" class="text-2xl font-bold text-blue-600">
-                                Secure Backup
-                            </a>
-                        </div>
-                    </div>
-                    <div class="flex items-center">
-                        <div class="hidden md:ml-4 md:flex-shrink-0 md:flex md:items-center">
-                            <div class="ml-3 relative">
-                                <div class="flex items-center">
-                                    <span id="userEmail" class="text-gray-700 mr-4"></span>
-                                    <button id="logoutBtn" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-md text-sm font-medium">
-                                        Logout
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </nav>
-
-        <!-- Main Content -->
-        <main class="flex-grow">
-            <div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-                <!-- Stats Section -->
-                <div class="px-4 py-6 sm:px-0">
-                    <div class="bg-white overflow-hidden shadow rounded-lg">
-                        <div class="px-4 py-5 sm:p-6">
-                            <h3 class="text-lg leading-6 font-medium text-gray-900">Backup Statistics</h3>
-                            
-                            <div class="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-3">
-                                <div class="bg-blue-50 overflow-hidden shadow rounded-lg">
-                                    <div class="px-4 py-5 sm:p-6">
-                                        <dl>
-                                            <dt class="text-sm font-medium text-gray-500 truncate">Total Files</dt>
-                                            <dd id="totalFiles" class="mt-1 text-3xl font-semibold text-gray-900">0</dd>
-                                        </dl>
-                                    </div>
-                                </div>
-
-                                <div class="bg-blue-50 overflow-hidden shadow rounded-lg">
-                                    <div class="px-4 py-5 sm:p-6">
-                                        <dl>
-                                            <dt class="text-sm font-medium text-gray-500 truncate">Total Size</dt>
-                                            <dd id="totalSize" class="mt-1 text-3xl font-semibold text-gray-900">0 MB</dd>
-                                        </dl>
-                                    </div>
-                                </div>
-
-                                <div class="bg-blue-50 overflow-hidden shadow rounded-lg">
-                                    <div class="px-4 py-5 sm:p-6">
-                                        <dl>
-                                            <dt class="text-sm font-medium text-gray-500 truncate">Last Backup</dt>
-                                            <dd id="lastBackup" class="mt-1 text-3xl font-semibold text-gray-900">Never</dd>
-                                        </dl>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- File List Section -->
-                <div class="px-4 py-6 sm:px-0">
-                    <div class="bg-white overflow-hidden shadow rounded-lg">
-                        <div class="px-4 py-5 sm:p-6">
-                            <div class="flex justify-between items-center mb-4">
-                                <h3 class="text-lg leading-6 font-medium text-gray-900">Your Backed Up Files</h3>
-                                <div class="relative">
-                                    <input id="searchInput" type="text" placeholder="Search files..." class="border border-gray-300 rounded-md py-2 px-4 pl-10 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                        <i class="fas fa-search text-gray-400"></i>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div id="errorAlert" class="hidden bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4" role="alert">
-                                <p id="errorMessage"></p>
-                            </div>
-
-                            <div id="loadingState" class="flex justify-center items-center py-12">
-                                <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500"></div>
-                            </div>
-
-                            <div id="emptyState" class="hidden flex flex-col items-center justify-center py-12 text-gray-500">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
-                                </svg>
-                                <p id="emptyStateMessage" class="text-xl">No files backed up yet</p>
-                                <p class="mt-2 text-center">Use the Windows application to back up files from your computer</p>
-                            </div>
-
-                            <div id="fileListContainer" class="hidden overflow-x-auto">
-                                <table class="min-w-full divide-y divide-gray-200">
-                                    <thead class="bg-gray-50">
-                                        <tr>
-                                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                <button id="sortByName" class="flex items-center focus:outline-none">
-                                                    File Name
-                                                    <svg id="nameSort" class="ml-1 w-4 h-4 hidden" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                                                        <path fill-rule="evenodd" d="M5.293 7.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 5.414V17a1 1 0 11-2 0V5.414L6.707 7.707a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>
-                                                    </svg>
-                                                </button>
-                                            </th>
-                                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                <button id="sortBySize" class="flex items-center focus:outline-none">
-                                                    Size
-                                                    <svg id="sizeSort" class="ml-1 w-4 h-4 hidden" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                                                        <path fill-rule="evenodd" d="M5.293 7.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 5.414V17a1 1 0 11-2 0V5.414L6.707 7.707a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>
-                                                    </svg>
-                                                </button>
-                                            </th>
-                                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                <button id="sortByDate" class="flex items-center focus:outline-none">
-                                                    Date
-                                                    <svg id="dateSort" class="ml-1 w-4 h-4" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                                                        <path fill-rule="evenodd" d="M14.707 12.293a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L9 14.586V3a1 1 0 012 0v11.586l2.293-2.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
-                                                    </svg>
-                                                </button>
-                                            </th>
-                                            <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                Actions
-                                            </th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="filesList" class="bg-white divide-y divide-gray-200">
-                                        <!-- File rows will be populated dynamically -->
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </main>
-
-        <!-- Footer -->
-        <footer class="bg-white">
-            <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-                <p class="text-center text-gray-500 text-sm">
-                    &copy; 2025 Secure Backup System. All rights reserved.
-                </p>
-            </div>
-        </footer>
+<body>
+  <nav class="navbar">
+    <div class="navbar-logo">
+      <a href="/" class="logo-link">
+        <h1>Secure Backup</h1>
+      </a>
     </div>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            // DOM elements
-            const userEmail = document.getElementById('userEmail');
-            const logoutBtn = document.getElementById('logoutBtn');
-            const totalFiles = document.getElementById('totalFiles');
-            const totalSize = document.getElementById('totalSize');
-            const lastBackup = document.getElementById('lastBackup');
-            const searchInput = document.getElementById('searchInput');
-            const errorAlert = document.getElementById('errorAlert');
-            const errorMessage = document.getElementById('errorMessage');
-            const loadingState = document.getElementById('loadingState');
-            const emptyState = document.getElementById('emptyState');
-            const emptyStateMessage = document.getElementById('emptyStateMessage');
-            const fileListContainer = document.getElementById('fileListContainer');
-            const filesList = document.getElementById('filesList');
+    <div class="navbar-menu">
+      <a href="/" class="nav-link">Home</a>
+      <a href="/dashboard.html" class="nav-link">Dashboard</a>
+    </div>
 
-            // Sorting and filtering
-            let files = [];
-            let sortBy = 'date';
-            let sortOrder = 'desc';
-            let searchQuery = '';
+    <div class="navbar-links">
+      <span class="welcome-message">Welcome, <span id="username">User</span></span>
+      <button class="logout-button" id="logoutButton">Logout</button>
+    </div>
+  </nav>
 
-            // Check authentication
-            const token = localStorage.getItem('token');
-            const user = JSON.parse(localStorage.getItem('user') || '{}');
+  <div class="dashboard-container">
+    <div class="dashboard-header">
+      <h1>Your Secure Files</h1>
+      <p>Manage your encrypted backups and restore files when needed</p>
+    </div>
+    
+    <div class="dashboard-stats">
+      <div class="stat-card">
+        <h3>Total Files</h3>
+        <div class="stat-value" id="totalFiles">0</div>
+      </div>
+      <div class="stat-card">
+        <h3>Storage Used</h3>
+        <div class="stat-value" id="storageUsed">0 MB</div>
+      </div>
+      <div class="stat-card">
+        <h3>Last Backup</h3>
+        <div class="stat-value" id="lastBackup">Never</div>
+      </div>
+    </div>
+    
+    <div class="dashboard-actions">
+      <div class="search-box">
+        <input type="text" placeholder="Search files..." id="searchInput">
+      </div>
+      <div class="action-buttons">
+        <button class="upload-button" id="uploadButton">Upload File</button>
+        <input type="file" id="fileInput" style="display: none;" multiple>
+      </div>
+    </div>
+    
+    <div class="files-table-container">
+      <table class="files-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Size</th>
+            <th>Last Modified</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="filesTableBody">
+          <!-- Table rows will be dynamically inserted here -->
+        </tbody>
+      </table>
+      
+      <div class="empty-state" id="emptyState">
+        <h3>No files yet</h3>
+        <p>Upload files to protect them with our triple-layer encryption.</p>
+        <button class="primary-btn" id="emptyStateUploadButton">Upload Your First File</button>
+      </div>
+    </div>
+  </div>
 
-            if (!token || !user) {
-                window.location.href = '/login.html';
-                return;
+  <footer class="app-footer">
+    <p>&copy; 2025 Secure Backup. All rights reserved.</p>
+  </footer>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // Check for authentication
+      const token = localStorage.getItem('token');
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      
+      if (!token) {
+        // Redirect to login if not authenticated
+        window.location.href = '/login.html';
+        return;
+      }
+      
+      // Set username in navbar
+      document.getElementById('username').textContent = user.name || 'User';
+      
+      // Elements
+      const filesTableBody = document.getElementById('filesTableBody');
+      const emptyState = document.getElementById('emptyState');
+      const totalFilesEl = document.getElementById('totalFiles');
+      const storageUsedEl = document.getElementById('storageUsed');
+      const lastBackupEl = document.getElementById('lastBackup');
+      const searchInput = document.getElementById('searchInput');
+      const fileInput = document.getElementById('fileInput');
+      const uploadButton = document.getElementById('uploadButton');
+      const emptyStateUploadButton = document.getElementById('emptyStateUploadButton');
+      const logoutButton = document.getElementById('logoutButton');
+      
+      // Functions to format data
+      const formatFileSize = (bytes) => {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+      };
+      
+      const formatDate = (dateString) => {
+        const date = new Date(dateString);
+        return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+      };
+      
+      // Function to render file list
+      const renderFiles = (files) => {
+        if (!files || files.length === 0) {
+          filesTableBody.innerHTML = '';
+          emptyState.style.display = 'block';
+          return;
+        }
+        
+        emptyState.style.display = 'none';
+        
+        // Update stats
+        totalFilesEl.textContent = files.length;
+        
+        const totalSize = files.reduce((sum, file) => sum + file.size, 0);
+        storageUsedEl.textContent = formatFileSize(totalSize);
+        
+        if (files.length > 0) {
+          // Find most recent backup
+          const mostRecent = new Date(Math.max(...files.map(f => new Date(f.updatedAt))));
+          lastBackupEl.textContent = formatDate(mostRecent);
+        }
+        
+        // Render table rows
+        filesTableBody.innerHTML = files.map(file => `
+          <tr data-id="${file.id}" data-s3key="${file.s3Key}">
+            <td>
+              <div class="file-name">
+                <div class="file-icon">${getFileIcon(file.fileName)}</div>
+                ${file.fileName}
+              </div>
+            </td>
+            <td>${formatFileSize(file.size)}</td>
+            <td>${formatDate(file.updatedAt)}</td>
+            <td>
+              <div class="file-actions">
+                <button class="file-action-btn download" title="Download" onclick="downloadFile('${file.s3Key}', '${file.fileName}')">⬇️</button>
+                <button class="file-action-btn delete" title="Delete" onclick="deleteFile('${file.s3Key}')">🗑️</button>
+              </div>
+            </td>
+          </tr>
+        `).join('');
+      };
+      
+      // Function to get icon for file type
+      const getFileIcon = (fileName) => {
+        const extension = fileName.split('.').pop().toLowerCase();
+        const iconMap = {
+          pdf: '📄',
+          doc: '📝',
+          docx: '📝',
+          xls: '📊',
+          xlsx: '📊',
+          jpg: '🖼️',
+          jpeg: '🖼️',
+          png: '🖼️',
+          gif: '🖼️',
+          mp3: '🎵',
+          mp4: '🎬',
+          zip: '📦',
+          default: '📄'
+        };
+        return iconMap[extension] || iconMap.default;
+      };
+      
+      // Fetch files from API
+      const fetchFiles = async () => {
+        try {
+          const response = await fetch('/api/files', {
+            headers: {
+              'Authorization': `Bearer ${token}`
             }
-
-            // Display user information
-            userEmail.textContent = user.email;
-
-            // Handle logout
-            logoutBtn.addEventListener('click', () => {
-                localStorage.removeItem('token');
-                localStorage.removeItem('user');
-                window.location.href = '/';
-            });
-
-            // Format file size
-            const formatFileSize = (bytes) => {
-                if (bytes === 0 || bytes === undefined || bytes === null || isNaN(bytes)) return '0 Bytes';
-                const k = 1024;
-                const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-                const i = Math.floor(Math.log(bytes) / Math.log(k));
-                return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-            };
-
-            // Format date
-            const formatDate = (dateString) => {
-                try {
-                    const date = new Date(dateString);
-                    if (isNaN(date.getTime())) {
-                        return 'Invalid date';
-                    }
-                    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
-                } catch (error) {
-                    console.error('Error formatting date:', error);
-                    return 'Invalid date';
-                }
-            };
-
-            // Render file list
-            const renderFileList = () => {
-                // Filter files based on search query
-                const filteredFiles = files.filter(file => 
-                    file.fileName.toLowerCase().includes(searchQuery.toLowerCase())
-                );
-
-                // Sort files
-                filteredFiles.sort((a, b) => {
-                    if (sortBy === 'name') {
-                        return sortOrder === 'asc' 
-                            ? a.fileName.localeCompare(b.fileName)
-                            : b.fileName.localeCompare(a.fileName);
-                    } else if (sortBy === 'size') {
-                        return sortOrder === 'asc' 
-                            ? a.size - b.size
-                            : b.size - a.size;
-                    } else {
-                        return sortOrder === 'asc'
-                            ? new Date(a.lastModified) - new Date(b.lastModified)
-                            : new Date(b.lastModified) - new Date(a.lastModified);
-                    }
-                });
-
-                // Show empty state if no files
-                if (filteredFiles.length === 0) {
-                    fileListContainer.classList.add('hidden');
-                    emptyState.classList.remove('hidden');
-                    emptyStateMessage.textContent = searchQuery 
-                        ? 'No files match your search'
-                        : 'No files backed up yet';
-                    return;
-                }
-
-                // Show file list if files exist
-                fileListContainer.classList.remove('hidden');
-                emptyState.classList.add('hidden');
-
-                // Clear existing rows
-                filesList.innerHTML = '';
-
-                // Add file rows
-                filteredFiles.forEach(file => {
-                    const row = document.createElement('tr');
-                    row.innerHTML = `
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <div class="flex items-center">
-                                <div class="text-sm font-medium text-gray-900">${file.fileName}</div>
-                            </div>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <div class="text-sm text-gray-500">${formatFileSize(file.size)}</div>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <div class="text-sm text-gray-500">${formatDate(file.lastModified)}</div>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            <button data-key="${file.s3Key}" class="download-btn text-blue-600 hover:text-blue-900 mr-4">
-                                <i class="fas fa-download"></i> Download
-                            </button>
-                            <button data-key="${file.s3Key}" class="delete-btn text-red-600 hover:text-red-900">
-                                <i class="fas fa-trash-alt"></i> Delete
-                            </button>
-                        </td>
-                    `;
-                    filesList.appendChild(row);
-                });
-
-                // Add event listeners to buttons
-                document.querySelectorAll('.download-btn').forEach(btn => {
-                    btn.addEventListener('click', () => {
-                        const s3Key = btn.getAttribute('data-key');
-                        const file = files.find(f => f.s3Key === s3Key);
-                        downloadFile(s3Key, file.keyId, file.fileName);
-                    });
-                });
-
-                document.querySelectorAll('.delete-btn').forEach(btn => {
-                    btn.addEventListener('click', () => {
-                        const s3Key = btn.getAttribute('data-key');
-                        deleteFile(s3Key);
-                    });
-                });
-            };
-
-            // Fetch files list
-            const fetchFiles = async () => {
-                try {
-                    loadingState.classList.remove('hidden');
-                    fileListContainer.classList.add('hidden');
-                    emptyState.classList.add('hidden');
-                    errorAlert.classList.add('hidden');
-
-                    const response = await fetch('/api/files', {
-                        headers: {
-                            'Authorization': `Bearer ${token}`
-                        }
-                    });
-
-                    if (!response.ok) {
-                        throw new Error('Failed to fetch files');
-                    }
-
-                    files = await response.json();
-                    
-                    // Update stats
-                    totalFiles.textContent = files.length;
-                    
-                    let totalBytes = 0;
-                    if (files.length > 0) {
-                        totalBytes = files.reduce((sum, file) => {
-                            const fileSize = file.size ? Number(file.size) : 0;
-                            return sum + fileSize;
-                        }, 0);
-                        
-                        // Find the most recent backup date
-                        const dates = files.map(file => new Date(file.lastModified));
-                        const validDates = dates.filter(date => !isNaN(date.getTime()));
-                        
-                        if (validDates.length > 0) {
-                            const lastBackupDate = new Date(Math.max(...validDates));
-                            lastBackup.textContent = formatDate(lastBackupDate);
-                        } else {
-                            lastBackup.textContent = 'Never';
-                        }
-                    } else {
-                        lastBackup.textContent = 'Never';
-                    }
-                    
-                    totalSize.textContent = formatFileSize(totalBytes);
-
-                    renderFileList();
-                } catch (error) {
-                    console.error('Error fetching files:', error);
-                    errorMessage.textContent = 'Error loading files. Please try again.';
-                    errorAlert.classList.remove('hidden');
-                } finally {
-                    loadingState.classList.add('hidden');
-                }
-            };
-
-            // Download file
-            const downloadFile = async (s3Key, keyId, fileName) => {
-                try {
-                    const response = await fetch(`/api/files/download?s3Key=${s3Key}&keyId=${keyId}`, {
-                        headers: {
-                            'Authorization': `Bearer ${token}`
-                        }
-                    });
-
-                    if (!response.ok) {
-                        throw new Error('Failed to download file');
-                    }
-
-                    const blob = await response.blob();
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.style.display = 'none';
-                    a.href = url;
-                    a.download = fileName;
-                    document.body.appendChild(a);
-                    a.click();
-                    window.URL.revokeObjectURL(url);
-                } catch (error) {
-                    console.error('Error downloading file:', error);
-                    errorMessage.textContent = 'Error downloading file. Please try again.';
-                    errorAlert.classList.remove('hidden');
-                }
-            };
-
-            // Delete file
-            const deleteFile = async (s3Key) => {
-                if (!confirm('Are you sure you want to delete this file? This action cannot be undone.')) {
-                    return;
-                }
-
-                try {
-                    const response = await fetch(`/api/files/${s3Key}`, {
-                        method: 'DELETE',
-                        headers: {
-                            'Authorization': `Bearer ${token}`
-                        }
-                    });
-
-                    if (!response.ok) {
-                        throw new Error('Failed to delete file');
-                    }
-
-                    // Refresh file list
-                    fetchFiles();
-                } catch (error) {
-                    console.error('Error deleting file:', error);
-                    errorMessage.textContent = 'Error deleting file. Please try again.';
-                    errorAlert.classList.remove('hidden');
-                }
-            };
-
-            // Fetch user stats (optional)
-            const fetchUserStats = async () => {
-                try {
-                    const response = await fetch('/api/files/stats', {
-                        headers: {
-                            'Authorization': `Bearer ${token}`
-                        }
-                    });
-
-                    if (!response.ok) {
-                        return; // Silently fail - stats will be calculated from files
-                    }
-
-                    const stats = await response.json();
-                    
-                    totalFiles.textContent = stats.totalFiles || 0;
-                    totalSize.textContent = formatFileSize(stats.totalSize || 0);
-                    
-                    if (stats.lastBackup) {
-                        lastBackup.textContent = formatDate(stats.lastBackup);
-                    } else {
-                        lastBackup.textContent = 'Never';
-                    }
-                } catch (error) {
-                    console.error('Error fetching stats:', error);
-                    // Silently fail - stats will be calculated from files
-                }
-            };
-
-            // Handle search
-            searchInput.addEventListener('input', (e) => {
-                searchQuery = e.target.value;
-                renderFileList();
-            });
-
-            // Handle sorting
-            document.getElementById('sortByName').addEventListener('click', () => {
-                if (sortBy === 'name') {
-                    sortOrder = sortOrder === 'asc' ? 'desc' : 'asc';
-                } else {
-                    sortBy = 'name';
-                    sortOrder = 'asc';
-                }
-                updateSortIndicators();
-                renderFileList();
-            });
-
-            document.getElementById('sortBySize').addEventListener('click', () => {
-                if (sortBy === 'size') {
-                    sortOrder = sortOrder === 'asc' ? 'desc' : 'asc';
-                } else {
-                    sortBy = 'size';
-                    sortOrder = 'asc';
-                }
-                updateSortIndicators();
-                renderFileList();
-            });
-
-            document.getElementById('sortByDate').addEventListener('click', () => {
-                if (sortBy === 'date') {
-                    sortOrder = sortOrder === 'asc' ? 'desc' : 'asc';
-                } else {
-                    sortBy = 'date';
-                    sortOrder = 'desc';
-                }
-                updateSortIndicators();
-                renderFileList();
-            });
-
-            // Update sort indicators
-            const updateSortIndicators = () => {
-                const nameSortIcon = document.getElementById('nameSort');
-                const sizeSortIcon = document.getElementById('sizeSort');
-                const dateSortIcon = document.getElementById('dateSort');
-                
-                nameSortIcon.classList.add('hidden');
-                sizeSortIcon.classList.add('hidden');
-                dateSortIcon.classList.add('hidden');
-                
-                if (sortBy === 'name') {
-                    nameSortIcon.classList.remove('hidden');
-                } else if (sortBy === 'size') {
-                    sizeSortIcon.classList.remove('hidden');
-                } else {
-                    dateSortIcon.classList.remove('hidden');
-                }
-                
-                [nameSortIcon, sizeSortIcon, dateSortIcon].forEach(icon => {
-                    if (sortOrder === 'asc') {
-                        icon.innerHTML = `<path fill-rule="evenodd" d="M5.293 7.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 5.414V17a1 1 0 11-2 0V5.414L6.707 7.707a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>`;
-                    } else {
-                        icon.innerHTML = `<path fill-rule="evenodd" d="M14.707 12.293a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L9 14.586V3a1 1 0 012 0v11.586l2.293-2.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>`;
-                    }
-                });
-            };
-
-            // Initialize
-            fetchUserStats();
-            fetchFiles();
+          });
+          
+          if (response.status === 401) {
+            // Token expired
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.href = '/login.html';
+            return;
+          }
+          
+          const data = await response.json();
+          renderFiles(data.files);
+        } catch (error) {
+          console.error('Error fetching files:', error);
+          alert('Failed to load your files. Please try again later.');
+        }
+      };
+      
+      // Handle file upload
+      const uploadFiles = async (files) => {
+        if (!files || files.length === 0) return;
+        
+        // Create FormData
+        const formData = new FormData();
+        for (let i = 0; i < files.length; i++) {
+          formData.append('files', files[i]);
+        }
+        
+        try {
+          const response = await fetch('/api/files/upload', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`
+            },
+            body: formData
+          });
+          
+          const data = await response.json();
+          
+          if (response.ok) {
+            alert('Files uploaded successfully!');
+            fetchFiles(); // Refresh file list
+          } else {
+            alert(`Upload failed: ${data.message}`);
+          }
+        } catch (error) {
+          console.error('Upload error:', error);
+          alert('File upload failed. Please try again.');
+        }
+      };
+      
+      // Define functions for file operations
+      window.downloadFile = async (s3Key, fileName) => {
+        try {
+          const response = await fetch(`/api/files/download?key=${s3Key}`, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+          
+          if (!response.ok) {
+            throw new Error('Download failed');
+          }
+          
+          // Create a blob and download
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.style.display = 'none';
+          a.href = url;
+          a.download = fileName;
+          document.body.appendChild(a);
+          a.click();
+          window.URL.revokeObjectURL(url);
+          document.body.removeChild(a);
+        } catch (error) {
+          console.error('Download error:', error);
+          alert('File download failed. Please try again.');
+        }
+      };
+      
+      window.deleteFile = async (s3Key) => {
+        if (!confirm('Are you sure you want to delete this file? This action cannot be undone.')) {
+          return;
+        }
+        
+        try {
+          const response = await fetch(`/api/files?key=${s3Key}`, {
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+          
+          if (response.ok) {
+            alert('File deleted successfully');
+            fetchFiles(); // Refresh file list
+          } else {
+            const data = await response.json();
+            alert(`Delete failed: ${data.message}`);
+          }
+        } catch (error) {
+          console.error('Delete error:', error);
+          alert('Failed to delete file. Please try again.');
+        }
+      };
+      
+      // Event listeners
+      uploadButton.addEventListener('click', () => {
+        fileInput.click();
+      });
+      
+      emptyStateUploadButton.addEventListener('click', () => {
+        fileInput.click();
+      });
+      
+      fileInput.addEventListener('change', (e) => {
+        uploadFiles(e.target.files);
+      });
+      
+      searchInput.addEventListener('input', (e) => {
+        const searchTerm = e.target.value.toLowerCase();
+        
+        // Filter files based on search term
+        const rows = filesTableBody.querySelectorAll('tr');
+        rows.forEach(row => {
+          const fileName = row.querySelector('.file-name').textContent.toLowerCase();
+          if (fileName.includes(searchTerm)) {
+            row.style.display = '';
+          } else {
+            row.style.display = 'none';
+          }
         });
-    </script>
+      });
+      
+      logoutButton.addEventListener('click', () => {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/';
+      });
+      
+      // Initial fetch
+      fetchFiles();
+    });
+  </script>
 </body>
 </html>
