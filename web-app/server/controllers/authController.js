@@ -1,26 +1,26 @@
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-const { OAuth2Client } = require('google-auth-library');
-const { eq } = require('drizzle-orm');
-const { db } = require('../db');
-const { users } = require('../../shared/schema');
-const { storage } = require('../storage');
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
+const { OAuth2Client } = require("google-auth-library");
+const { eq } = require("drizzle-orm");
+const { db } = require("../db");
+const { users } = require("../../shared/schema");
+const { storage } = require("../storage");
 
 // Configure Google OAuth client
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 // JWT token secret
-const JWT_SECRET = process.env.JWT_SECRET || 'secure-backup-jwt-secret-key';
+const JWT_SECRET = process.env.JWT_SECRET || "secure-backup-jwt-secret-key";
 
 // Generate JWT token for user
 const generateToken = (user) => {
   return jwt.sign(
-    { 
-      id: user.id, 
-      email: user.email 
+    {
+      id: user.id,
+      email: user.email,
     },
     JWT_SECRET,
-    { expiresIn: '7d' }
+    { expiresIn: "7d" },
   );
 };
 
@@ -32,7 +32,7 @@ exports.register = async (req, res, next) => {
     // Validate input
     if (!email || !password) {
       return res.status(400).json({
-        message: 'Email and password are required'
+        message: "Email and password are required",
       });
     }
 
@@ -40,7 +40,7 @@ exports.register = async (req, res, next) => {
     const existingUser = await storage.getUserByUsername(email);
     if (existingUser) {
       return res.status(400).json({
-        message: 'User with this email already exists'
+        message: "User with this email already exists",
       });
     }
 
@@ -53,7 +53,7 @@ exports.register = async (req, res, next) => {
       name,
       email,
       password: hashedPassword,
-      googleId: null
+      googleId: null,
     });
 
     // Generate token
@@ -64,9 +64,9 @@ exports.register = async (req, res, next) => {
       user: {
         id: user.id,
         name: user.name,
-        email: user.email
+        email: user.email,
       },
-      token
+      token,
     });
   } catch (error) {
     next(error);
@@ -75,13 +75,14 @@ exports.register = async (req, res, next) => {
 
 // Login user
 exports.login = async (req, res, next) => {
+  console.log("In the login function");
   try {
     const { email, password } = req.body;
 
     // Validate input
     if (!email || !password) {
       return res.status(400).json({
-        message: 'Email and password are required'
+        message: "Email and password are required",
       });
     }
 
@@ -89,14 +90,14 @@ exports.login = async (req, res, next) => {
     const user = await storage.getUserByUsername(email);
     if (!user) {
       return res.status(401).json({
-        message: 'Invalid credentials'
+        message: "Invalid credentials",
       });
     }
 
     // Check if user has a password (might be Google account)
     if (!user.password) {
       return res.status(401).json({
-        message: 'This account uses Google authentication'
+        message: "This account uses Google authentication",
       });
     }
 
@@ -104,7 +105,7 @@ exports.login = async (req, res, next) => {
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(401).json({
-        message: 'Invalid credentials'
+        message: "Invalid credentials",
       });
     }
 
@@ -116,9 +117,9 @@ exports.login = async (req, res, next) => {
       user: {
         id: user.id,
         name: user.name,
-        email: user.email
+        email: user.email,
       },
-      token
+      token,
     });
   } catch (error) {
     next(error);
@@ -133,7 +134,7 @@ exports.googleAuth = async (req, res, next) => {
     // Verify Google token
     const ticket = await googleClient.verifyIdToken({
       idToken: token,
-      audience: process.env.GOOGLE_CLIENT_ID
+      audience: process.env.GOOGLE_CLIENT_ID,
     });
 
     const payload = ticket.getPayload();
@@ -152,7 +153,7 @@ exports.googleAuth = async (req, res, next) => {
         // Update existing user with Google ID
         user = await storage.updateUser(user.id, {
           ...user,
-          googleId
+          googleId,
         });
       } else {
         // Create new user
@@ -160,7 +161,7 @@ exports.googleAuth = async (req, res, next) => {
           name,
           email,
           password: null,
-          googleId
+          googleId,
         });
       }
     }
@@ -173,9 +174,9 @@ exports.googleAuth = async (req, res, next) => {
       user: {
         id: user.id,
         name: user.name,
-        email: user.email
+        email: user.email,
       },
-      token: jwtToken
+      token: jwtToken,
     });
   } catch (error) {
     next(error);
@@ -187,10 +188,10 @@ exports.getMe = async (req, res, next) => {
   try {
     // req.user is set from the auth middleware
     const user = await storage.getUser(req.user.id);
-    
+
     if (!user) {
       return res.status(404).json({
-        message: 'User not found'
+        message: "User not found",
       });
     }
 
@@ -198,7 +199,7 @@ exports.getMe = async (req, res, next) => {
       id: user.id,
       name: user.name,
       email: user.email,
-      createdAt: user.createdAt
+      createdAt: user.createdAt,
     });
   } catch (error) {
     next(error);
